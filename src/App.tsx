@@ -1,12 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowDown, ArrowRight, BadgeCheck, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Clock3, Droplets, Leaf, Menu, Minus, Phone, Plus, ShieldCheck, Sparkles, Star, Wrench, X } from 'lucide-react'
+import AdminPanel from './components/AdminPanel'
+import { saveBooking } from './lib/bookings'
 
 const products = [
-  { id: 'wall', name: '벽걸이 에어컨', price: 80000, note: '원룸·작은 방' },
-  { id: 'stand', name: '스탠드 에어컨', price: 140000, note: '가정용 기본형' },
+  { id: 'wall', name: '벽걸이 에어컨', price: 58410, note: '기본형 기준' },
+  { id: 'stand', name: '스탠드 에어컨', price: 107100, note: 'LG·삼성 기준' },
   { id: 'two', name: '2in1 세트', price: 200000, note: '벽걸이 + 스탠드' },
-  { id: 'ceiling', name: '천장형 시스템', price: 110000, note: '1way 기준' },
-  { id: 'fridge', name: '냉장고 분해세척', price: 150000, note: '양문형 기준' },
+  { id: 'ceiling', name: '천장형 시스템', price: 78210, note: '1·2way 기준' },
+  { id: 'fridge', name: '냉장고 분해세척', price: 80100, note: '일반형 기준' },
 ]
 const fmt = (n: number) => `${n.toLocaleString('ko-KR')}원`
 const steps = [
@@ -22,15 +24,83 @@ const reviews = [
   { name: '박** · 경기 성남시', date: '2025. 05. 10', text: '아이 방 에어컨이라 걱정했는데 친환경 세제라고 설명해주셔서 안심했어요. 케어 후 공기가 확실히 달라졌네요.', tag: '스탠드 에어컨' },
   { name: '이** · 서울 송파구', date: '2025. 05. 08', text: '냉장고 안쪽 구석까지 스팀으로 세척해주셨어요. 친절하고 꼼꼼한 서비스 덕분에 기분 좋게 이용했습니다.', tag: '냉장고 케어' },
 ]
+const servicePrices = [
+  { id: 'aircon', label: '에어컨 청소', intro: '브랜드와 설치 형태에 맞는 에어컨 세척 요금을 확인하세요.', rows: [
+    { name: '벽걸이 에어컨', prices: ['58,410원'] },
+    { name: '스탠드 에어컨 (기타 브랜드)', prices: ['116,100원'] },
+    { name: '스탠드 에어컨 (LG, 삼성)', prices: ['107,100원'] },
+    { name: '시스템(천장형) 에어컨 1·2way', prices: ['78,210원'] },
+    { name: '시스템(천장형) 에어컨 4way', prices: ['121,410원'] },
+  ] },
+  { id: 'washer', label: '세탁기 청소', intro: '세탁기 종류와 용량에 따른 분해 세척 요금입니다.', rows: [
+    { name: '일반 세탁기', prices: ['14kg 이하 · 98,910원', '15–17kg · 108,810원', '18kg 이상 · 111,780원'] },
+    { name: '드럼 세탁기', prices: ['14kg 이하 · 121,680원', '15–17kg · 141,480원', '18kg 이상 · 157,410원'] },
+    { name: '빌트인 세탁기', prices: ['일반 · 141,480원', '삼성 · 161,280원'] },
+    { name: '올인원 세탁기', prices: ['삼성 플렉스워시 · 341,100원', 'LG 트윈워시 · 296,100원'] },
+  ] },
+  { id: 'fridge', label: '냉장고 청소', intro: '도어 구성과 음식물 케어 여부에 따라 요금이 달라집니다.', rows: [
+    { name: '냉장고 (단문)', prices: ['80,100원'] },
+    { name: '냉장고 (양문·3도어)', prices: ['116,100원'] },
+    { name: '냉장고 (4도어)', prices: ['125,100원'] },
+    { name: '김치냉장고 (뚜껑형)', prices: ['71,100원'] },
+    { name: '김치냉장고 (단문)', prices: ['80,100원'] },
+    { name: '김치냉장고 (양문)', prices: ['107,100원'] },
+    { name: '김치냉장고 (4도어)', prices: ['116,100원'] },
+    { name: '냉장고 (단문, 음식물 케어)', prices: ['116,100원'] },
+    { name: '냉장고 (양문·3도어, 음식물 케어)', prices: ['152,100원'] },
+    { name: '냉장고 (4도어, 음식물 케어)', prices: ['170,100원'] },
+    { name: '김치냉장고 (뚜껑형, 음식물 케어)', prices: ['98,100원'] },
+    { name: '김치냉장고 (단문, 음식물 케어)', prices: ['107,100원'] },
+    { name: '김치냉장고 (양문, 음식물 케어)', prices: ['143,100원'] },
+    { name: '김치냉장고 (4도어, 음식물 케어)', prices: ['161,100원'] },
+  ] },
+  { id: 'hood', label: '후드 청소', intro: '주방 후드 형태별 세척 요금을 확인할 수 있습니다.', rows: [
+    { name: '주방후드 (슬림·슬라이딩)', prices: ['107,100원'] },
+    { name: '주방후드 (통·디럭스)', prices: ['125,100원'] },
+    { name: '주방후드 (침니)', prices: ['134,100원'] },
+    { name: '주방후드 (프리미엄·아일랜드 등)', prices: ['179,100원'] },
+  ] },
+  { id: 'dryer', label: '건조기 청소', intro: '건조기 용량별 분해 세척 요금입니다.', rows: [
+    { name: '건조기 (9kg 이하)', prices: ['134,100원'] },
+    { name: '건조기 (10–14kg)', prices: ['152,100원'] },
+    { name: '건조기 (15kg 이상)', prices: ['161,100원'] },
+  ] },
+  { id: 'purifier', label: '공기청정기 청소', intro: '제품 형태와 단수에 맞춰 내부까지 케어합니다.', rows: [
+    { name: '공기청정기 (1단)', prices: ['85,410원'] },
+    { name: '공기청정기 (2단)', prices: ['125,100원'] },
+    { name: '공기청정기 (가정용 스탠드)', prices: ['116,100원'] },
+  ] },
+]
+const faqItems = [
+  { question: '예약 후 진행 과정이 어떻게 되나요?', answer: '신청 내용을 확인한 뒤 제품 종류와 방문 지역, 일정을 상담하고 최종 요금을 안내합니다. 일정과 요금에 동의하시면 방문 일정을 확정합니다.' },
+  { question: '청소 과정이 궁금해요.', answer: '작동 상태와 주변을 먼저 확인하고 보양한 뒤, 제품을 분해해 친환경 세정·고압 세척·살균을 진행합니다. 마지막으로 조립과 시운전까지 확인합니다.' },
+  { question: '셀프 청소와 전문 청소의 차이가 뭔가요?', answer: '필터 표면 관리만으로 닿기 어려운 냉각핀·송풍팬·내부 부품까지 제품 구조에 맞춰 분해 세척하고, 조립 후 작동 상태도 점검합니다.' },
+  { question: '우리 지역에서도 서비스 이용 가능한가요?', answer: '방문 가능 지역과 일정은 제품과 지역에 따라 달라질 수 있습니다. 신청 시 거주 지역을 남겨주시면 가능 여부를 안내합니다.' },
+  { question: '서비스가 불가능한 경우가 어떻게 되나요?', answer: '제품 고장이나 부품 단종, 설치 환경 등으로 안전한 분해·조립이 어려운 경우에는 작업 전 안내하고 일정을 조정하거나 서비스를 진행하지 않을 수 있습니다.' },
+  { question: '청소 시간은 얼마나 걸리나요?', answer: '제품 종류와 대수, 오염도에 따라 달라집니다. 방문 전 상담에서 예상 소요 시간을 안내해 드립니다.' },
+  { question: '추가 요금은 어떤 경우에 나오고, 얼마인가요?', answer: '제품의 크기·모델, 설치 환경, 추가 케어 요청에 따라 달라질 수 있습니다. 작업 전 추가 항목과 요금을 안내하고 동의를 받은 뒤 진행합니다.' },
+  { question: '청소 전 준비 사항이 있나요?', answer: '작업 공간 주변의 작은 물건을 정리해 주세요. 제품 분해나 내부 세척은 직접 하지 않으셔도 됩니다.' },
+  { question: '예약을 변경, 취소하고 싶어요.', answer: '방문 일정이 확정되면 안내받은 상담 연락처로 가능한 한 빨리 변경 또는 취소를 요청해 주세요.' },
+  { question: 'A/S 기간이 궁금해요.', answer: '케어홈은 작업 완료 후 30일 무상 A/S를 안내합니다. 제품 자체의 기존 고장이나 작업 범위 밖의 문제는 적용 대상에서 제외될 수 있습니다.' },
+]
 
 function App() {
+  const [isAdmin, setIsAdmin] = useState(() => window.location.pathname === '/admin')
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [visitDate, setVisitDate] = useState('')
   const [modal, setModal] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [slider, setSlider] = useState(50)
   const [activePair, setActivePair] = useState(0)
+  const [activePrice, setActivePrice] = useState(0)
+  const [openFaq, setOpenFaq] = useState<number | null>(null)
   const [mobileMenu, setMobileMenu] = useState(false)
+  const [formError, setFormError] = useState('')
+  useEffect(() => {
+    const syncPage = () => setIsAdmin(window.location.pathname === '/admin')
+    window.addEventListener('popstate', syncPage)
+    return () => window.removeEventListener('popstate', syncPage)
+  }, [])
   const total = products.reduce((sum, product) => sum + product.price * (counts[product.id] || 0), 0)
   const pairs = [
     { title: '에어컨 냉각핀 & 송풍팬', before: '곰팡이와 먼지가 쌓인 냉각핀', after: '고압 세척 후 깨끗해진 냉각핀', beforeImg: '/ac-before.webp', afterImg: '/ac-after.webp' },
@@ -39,14 +109,19 @@ function App() {
     { title: '주방 후드 필터', before: '기름때가 엉겨 붙은 후드 필터', after: '기름때를 제거해 산뜻해진 필터', beforeImg: '/hood-before.webp', afterImg: '/hood-after.webp' },
   ]
   const current = pairs[activePair]
+  const selectedPrice = servicePrices[activePrice]
   const changeCount = (id: string, amount: number) => setCounts((prev) => ({ ...prev, [id]: Math.max(0, (prev[id] || 0) + amount) }))
-  const openBooking = () => { setSubmitted(false); setModal(true) }
+  const openBooking = () => { setSubmitted(false); setFormError(''); setModal(true) }
   const closeBooking = () => setModal(false)
+  const goToAdmin = () => { window.history.pushState({}, '', '/admin'); setIsAdmin(true); window.scrollTo(0, 0) }
+  const goToSite = () => { window.history.pushState({}, '', '/'); setIsAdmin(false); window.scrollTo(0, 0) }
+
+  if (isAdmin) return <AdminPanel onBack={goToSite} />
 
   return <>
     <header className="header"><a className="brand" href="#top" aria-label="케어홈 홈"><span className="brand-mark"><Sparkles size={19} strokeWidth={2.5} /></span><span>케어홈<span className="brand-en">CARE HOME</span></span></a>
       <button className="mobile-menu-button" aria-label="메뉴 열기" onClick={() => setMobileMenu(!mobileMenu)}>{mobileMenu ? <X /> : <Menu />}</button>
-      <nav className={mobileMenu ? 'nav nav-open' : 'nav'}><a href="#services" onClick={() => setMobileMenu(false)}>서비스 소개</a><a href="#before-after" onClick={() => setMobileMenu(false)}>작업 전후</a><a href="#reviews" onClick={() => setMobileMenu(false)}>이용 후기</a><a href="#guarantee" onClick={() => setMobileMenu(false)}>안심 보장</a></nav>
+      <nav className={mobileMenu ? 'nav nav-open' : 'nav'}><a href="#services" onClick={() => setMobileMenu(false)}>서비스 소개</a><a href="#prices" onClick={() => setMobileMenu(false)}>서비스 요금</a><a href="#before-after" onClick={() => setMobileMenu(false)}>작업 전후</a><a href="#reviews" onClick={() => setMobileMenu(false)}>이용 후기</a><a href="#faq" onClick={() => setMobileMenu(false)}>자주 묻는 질문</a><a href="#guarantee" onClick={() => setMobileMenu(false)}>안심 보장</a></nav>
       <button className="header-cta" onClick={openBooking}>간편 예약 <ArrowRight size={16} /></button>
     </header>
 
@@ -72,6 +147,8 @@ function App() {
           <div className="estimate-total"><span>예상 견적 <small>(부가세 포함)</small></span><strong>{fmt(total)}<small>~</small></strong></div><button className="primary-button estimate-button" onClick={openBooking}>3초 만에 예약 신청하기 <ArrowRight size={17} /></button><p className="quote-footnote"><ShieldCheck size={13} /> 일정 확정 후 최종 견적을 안내드려요</p>
         </div></div></section>
 
+      <section className="price-section" id="prices"><div className="section-shell"><div className="price-heading"><span className="section-kicker">SERVICE PRICE</span><h2>서비스별 <span>요금을 확인하세요</span></h2><p>제품 종류와 규격에 맞는 기본 청소 요금을 안내합니다.</p></div><div className="price-tabs" role="tablist" aria-label="서비스 종류">{servicePrices.map((service, index) => <button key={service.id} type="button" role="tab" aria-selected={activePrice === index} className={activePrice === index ? 'price-tab active' : 'price-tab'} onClick={() => setActivePrice(index)}>{service.label}</button>)}</div><div className="price-layout"><div className="price-intro"><span className="price-intro-label">서비스 요금</span><h3>{selectedPrice.label}</h3><p>{selectedPrice.intro}</p></div><div className="price-table-wrap" role="tabpanel"><table className="price-table"><thead><tr><th>종류</th><th>청소 요금</th></tr></thead><tbody>{selectedPrice.rows.map((row) => <tr key={row.name}><td>{row.name}</td><td>{row.prices.map((price) => <span key={price}>{price}</span>)}</td></tr>)}</tbody></table></div></div><p className="price-footnote">※ 지역·제품 사양·설치 환경에 따라 실제 요금은 달라질 수 있으며, 추가 요금은 작업 전 안내합니다.</p></div></section>
+
       <section className="before-section" id="before-after"><div className="section-shell"><div className="section-heading"><div><span className="section-kicker">REAL CHANGE</span><h2>달라진 모습을 <span>직접 확인하세요</span></h2><p>가전별로 확인하는 케어홈의 작업 전후</p></div><div className="pair-arrows"><button aria-label="이전 비교" onClick={() => { setActivePair((activePair + pairs.length - 1) % pairs.length); setSlider(50) }}><ChevronLeft /></button><span>0{activePair + 1} <i>/</i> 0{pairs.length}</span><button aria-label="다음 비교" onClick={() => { setActivePair((activePair + 1) % pairs.length); setSlider(50) }}><ChevronRight /></button></div></div>
           <div className="compare-layout"><div className="compare-copy"><span className="compare-small">BEFORE & AFTER</span><h3>{current.title}</h3><p>분해하지 않으면 보이지 않는 곳까지<br />전문 장비로 깨끗하게 케어합니다.</p><div className="compare-captions"><div><span className="caption-dot before-dot" /><span><b>BEFORE</b><small>{current.before}</small></span></div><div><span className="caption-dot after-dot" /><span><b>AFTER</b><small>{current.after}</small></span></div></div><span className="drag-hint"><ArrowRight size={14} /> 슬라이더를 움직여 비교해보세요</span></div>
             <div className="compare-frame"><img className="compare-after" src={current.afterImg} alt={current.after} /><div className="compare-before" style={{clipPath: `inset(0 ${100 - slider}% 0 0)`}}><img src={current.beforeImg} alt={current.before} /></div><span className="compare-tag tag-before">BEFORE</span><span className="compare-tag tag-after">AFTER</span><div className="slider-divider" style={{left: `${slider}%`}}><span><ChevronLeft size={14} /><ChevronRight size={14} /></span></div><input className="compare-range" aria-label="작업 전후 비교 슬라이더" type="range" min="5" max="95" value={slider} onChange={(e) => setSlider(Number(e.target.value))} /></div>
@@ -81,13 +158,15 @@ function App() {
 
       <section className="review-section" id="reviews"><div className="section-shell"><div className="review-heading"><div><span className="section-kicker">REAL REVIEWS</span><h2>먼저 경험한 분들의 <span>이야기</span></h2><p>케어홈과 함께한 고객님들의 솔직한 후기예요.</p></div><div className="rating-box"><div><Star size={18} fill="currentColor" /><b>4.9</b><span>/ 5.0</span></div><small>실제 이용 고객 평점</small><div className="rating-stars">★★★★★</div></div></div><div className="review-grid">{reviews.map((review) => <article className="review-card" key={review.name}><div className="review-card-top"><span className="review-tag">{review.tag}</span><div className="review-stars">★★★★★</div></div><p>“{review.text}”</p><div className="review-author"><span className="avatar">{review.name.slice(0, 1)}</span><span><b>{review.name}</b><small>{review.date}</small></span><BadgeCheck size={16} className="verified" /><small className="verified-text">이용 확인</small></div></article>)}</div></div></section>
 
+      <section className="faq-section" id="faq"><div className="section-shell"><div className="faq-heading"><span className="section-kicker">FAQ</span><h2>자주 묻는 질문</h2><p>예약 전 궁금한 내용을 확인해보세요.</p></div><div className="faq-list">{faqItems.map((item, index) => <article className={openFaq === index ? 'faq-item faq-open' : 'faq-item'} key={item.question}><button className="faq-question" aria-expanded={openFaq === index} aria-controls={`faq-answer-${index}`} onClick={() => setOpenFaq(openFaq === index ? null : index)}><span><i>Q.</i> {item.question}</span><ChevronDown size={17} /></button><div className="faq-answer" id={`faq-answer-${index}`} hidden={openFaq !== index}><p>{item.answer}</p></div></article>)}</div></div></section>
+
       <section className="guarantee-section" id="guarantee"><div className="section-shell guarantee-inner"><div className="guarantee-icon"><ShieldCheck size={30} /></div><div><span className="section-kicker">CARE HOME PROMISE</span><h2>맡기는 순간부터, <span>안심이 되도록.</span></h2><p>케어홈은 서비스 품질과 고객님의 공간을 소중하게 지킵니다.</p></div><div className="guarantee-points"><span><CircleCheck size={17} /> 30일 무상 A/S 보장</span><span><CircleCheck size={17} /> 영업배상책임보험 가입</span><span><CircleCheck size={17} /> 검증된 전문 마스터</span></div></div></section>
     </main>
 
-    <footer className="footer"><div className="section-shell"><div className="footer-top"><a className="brand footer-brand" href="#top"><span className="brand-mark"><Sparkles size={19} /></span><span>케어홈<span className="brand-en">CARE HOME</span></span></a><div className="footer-phone"><Phone size={19} /><span><small>케어홈 고객센터</small><b>1588-0000</b></span><span className="footer-hours">평일 09:00 – 18:00</span></div></div><div className="footer-info"><span>상호명: 케어홈</span><span>대표자: 홍길동</span><span>사업자등록번호: 123-45-67890</span><span>통신판매업 신고번호: 제2025-서울강남-0000호</span><span>주소: 서울특별시 강남구 테헤란로 123, 4층</span></div><div className="footer-bottom"><span>© 2025 CARE HOME. All rights reserved.</span><span className="insurance"><ShieldCheck size={14} /> 영업배상책임보험 1억 원 가입</span><div><a href="#top">이용약관</a><a href="#top">개인정보처리방침</a></div></div></div></footer>
+    <footer className="footer"><div className="section-shell"><div className="footer-top"><a className="brand footer-brand" href="#top"><span className="brand-mark"><Sparkles size={19} /></span><span>케어홈<span className="brand-en">CARE HOME</span></span></a><div className="footer-phone"><Phone size={19} /><span><small>케어홈 고객센터</small><b>1588-0000</b></span><span className="footer-hours">평일 09:00 – 18:00</span></div></div><div className="footer-info"><span>상호명: 케어홈</span><span>대표자: 홍길동</span><span>사업자등록번호: 123-45-67890</span><span>통신판매업 신고번호: 제2025-서울강남-0000호</span><span>주소: 서울특별시 강남구 테헤란로 123, 4층</span></div><div className="footer-bottom"><span>© 2025 CARE HOME. All rights reserved.</span><span className="insurance"><ShieldCheck size={14} /> 영업배상책임보험 1억 원 가입</span><div><a href="#top">이용약관</a><a href="#top">개인정보처리방침</a><button className="admin-footer-link" onClick={goToAdmin}>관리자</button></div></div></div></footer>
 
     <div className="mobile-sticky"><a href="tel:1588-0000"><Phone size={18} /> 전화 상담</a><button onClick={openBooking}><span className="kakao-symbol">T</span> 카카오톡 1:1 상담</button></div>
-    {modal && <div className="modal-backdrop" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) closeBooking() }}><section className="booking-modal" role="dialog" aria-modal="true" aria-labelledby="booking-title"><button className="modal-close" onClick={closeBooking} aria-label="닫기"><X size={20} /></button>{submitted ? <div className="success-state"><div className="success-icon"><Check size={26} /></div><span className="section-kicker">REQUEST COMPLETE</span><h2>예약 신청이 완료됐어요!</h2><p>담당자가 확인 후 빠르게 연락드릴게요.<br />케어홈을 찾아주셔서 감사합니다.</p><button className="primary-button" onClick={closeBooking}>확인 <ArrowRight size={16} /></button></div> : <><div className="modal-heading"><span className="section-kicker">QUICK BOOKING</span><h2 id="booking-title">간편 예약 신청</h2><p>정보를 남겨주시면 확인 후 연락드릴게요.</p></div><div className="modal-summary"><span>선택 제품 <b>{Object.values(counts).reduce((sum, count) => sum + count, 0)}개</b></span><strong>{fmt(total)}<small>~</small></strong></div><form onSubmit={(e) => { e.preventDefault(); setSubmitted(true) }}><label>이름<input required placeholder="성함을 입력해주세요" /></label><label>연락처<input required type="tel" pattern="[0-9\-+ ]{9,15}" placeholder="010-0000-0000" /></label><label>거주 지역<input required placeholder="예: 서울시 마포구" /></label><label className="privacy-check"><input type="checkbox" required /><span>상담을 위한 개인정보 수집 및 이용에 동의합니다.</span></label><button className="primary-button modal-submit" type="submit">예약 신청 완료하기 <ArrowRight size={16} /></button></form></>}</section></div>}
+    {modal && <div className="modal-backdrop" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) closeBooking() }}><section className="booking-modal" role="dialog" aria-modal="true" aria-labelledby="booking-title"><button className="modal-close" onClick={closeBooking} aria-label="닫기"><X size={20} /></button>{submitted ? <div className="success-state"><div className="success-icon"><Check size={26} /></div><span className="section-kicker">TEMPORARY REQUEST SAVED</span><h2>임시 신청이 저장됐어요</h2><p>관리자 패널에서 확인할 수 있어요.<br />현재는 이 브라우저에만 저장되며 담당자에게 전달되지는 않습니다.</p><button className="primary-button" onClick={closeBooking}>확인 <ArrowRight size={16} /></button></div> : <><div className="modal-heading"><span className="section-kicker">QUICK BOOKING</span><h2 id="booking-title">간편 예약 신청</h2><p>정보를 남겨주시면 확인 후 연락드릴게요.</p></div><div className="modal-summary"><span>선택 제품 <b>{Object.values(counts).reduce((sum, count) => sum + count, 0)}개</b></span><strong>{fmt(total)}<small>~</small></strong></div><form onSubmit={(e) => { e.preventDefault(); const form = new FormData(e.currentTarget); try { saveBooking({ name: String(form.get('name') || '').trim(), phone: String(form.get('phone') || '').trim(), region: String(form.get('region') || '').trim(), visitDate: visitDate || null, items: products.filter((product) => (counts[product.id] || 0) > 0).map((product) => ({ productId: product.id, name: product.name, unitPrice: product.price, quantity: counts[product.id] })), estimatedTotal: total }); setSubmitted(true); setFormError('') } catch { setFormError('이 브라우저에 신청을 저장하지 못했습니다. 브라우저 저장소 설정을 확인해주세요.') } }}><label>이름<input name="name" required placeholder="성함을 입력해주세요" /></label><label>연락처<input name="phone" required type="tel" pattern="[0-9\-+ ]{9,15}" placeholder="010-0000-0000" /></label><label>거주 지역<input name="region" required placeholder="예: 서울시 마포구" /></label><label className="privacy-check"><input type="checkbox" required /><span>상담을 위한 개인정보 수집 및 이용에 동의합니다.</span></label><p className="booking-local-note">현재는 이 브라우저에 임시 저장되며 실제 상담 접수는 아직 연결되지 않았습니다.</p>{formError && <p className="booking-form-error" role="alert">{formError}</p>}<button className="primary-button modal-submit" type="submit">예약 신청 완료하기 <ArrowRight size={16} /></button></form></>}</section></div>}
   </>
 }
 
